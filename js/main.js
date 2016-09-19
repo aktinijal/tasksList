@@ -1,4 +1,7 @@
 $(function() {	
+
+	Backbone.history.start();
+
 	// пространство имён
 	window.App = {
 		Models: {},
@@ -10,6 +13,22 @@ $(function() {
 	window.template = function(id) {
 		return _.template( $('#' + id).html() );
 	};
+
+	App.Router = Backbone.Router.extend({
+		routes: {
+		        ''     : 'index',
+		        'another' : 'another'
+		    },
+	 
+	    index: function() {
+	        console.log('index route');   
+	    },
+	    another: function() {
+	    	console.log('another route'); 
+	    },
+	});
+	 
+	new App.Router();
  
 	App.Models.Task = Backbone.Model.extend({});
  
@@ -17,6 +36,16 @@ $(function() {
 		tagName: 'li',
 		template: template('taskTemplate'),
 
+		initialize: function () {  
+	        this.model.on('change', this.render, this); 
+	        this.model.on('destroy', this.remove, this);
+		},
+
+		validate: function (attrs) {
+			if ( ! $.trim(attrs.title) ) {
+				return 'Title must be valid';
+			}
+		},
 		render: function () {
 			var template = this.template(this.model.toJSON());
 			this.$el.html( template );
@@ -24,16 +53,23 @@ $(function() {
 		},
 
 		events:{
-			'click .edit': 'editTask'
+			'click .edit': 'editTask',
+   			'click .delete': 'destroy'
 		},
 
 		editTask: function  () {
 			var newTaskTitle = prompt('Please, enter new task title', this.model.get('title'));
 			this.model.set('title', newTaskTitle);
+		},
+		destroy: function  () {
+		    this.model.destroy();
+		},
+
+		remove: function  () {
+		    this.$el.remove(); 
 		}
 	});
  
-
 	App.Collections.Task = Backbone.Collection.extend({
 		model: App.Models.Task
 	});
@@ -41,15 +77,18 @@ $(function() {
 	App.Views.Tasks = Backbone.View.extend({
 		tagName: 'ul',
 
+		initialize: function() {
+          this.collection.on('add', this.addOne, this );
+        },
+
 		render: function() {
 			this.collection.each(this.addOne, this);
 			return this;
 		},
 
 		addOne: function(task) {
-			// создавать новый дочерний вид
 			var taskView = new App.Views.Task({ model: task });
-			// добавлять его в корневой элемент
+
 			this.$el.append(taskView.render().el);
 		}
 	})
@@ -72,6 +111,29 @@ $(function() {
 	var tasksView = new App.Views.Tasks({ collection: tasksCollection});
  
 	$('.tasks').html(tasksView.render().el);
+
+ 	
+ 	App.Views.AddTask = Backbone.View.extend({
+        el: '#addTask',
+
+        events: {
+            'submit' : 'submit'
+        },
  
+        initialize: function() {
+        },
  
+        submit: function(e) {
+            e.preventDefault();
+ 
+            var newTaskTitle =  $(e.currentTarget).find('input[type=text]').val();
+            
+            var newTask = new App.Models.Task({ title: newTaskTitle });
+            this.collection.add(newTask);
+ 
+        }
+
+    });
+    
+    var addTaskView = new App.Views.AddTask({ collection: tasksCollection });
 });
